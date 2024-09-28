@@ -187,6 +187,7 @@ public class SearchCoordinator implements OnRequestCallback {
     }
 
     private static List<String> readDocumentsList() {
+        // TODO: S3 버킷으로부터 파일명 모두 읽어오기
         File documentsDirectory = new File(BOOKS_DIRECTORY);
         return Arrays.asList(documentsDirectory.list())
                 .stream()

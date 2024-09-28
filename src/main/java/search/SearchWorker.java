@@ -65,6 +65,7 @@ public class SearchWorker implements OnRequestCallback {
     }
 
     private List<String> parseWordsFromDocument(String document) {
+        // TODO: S3 버킷으로부터 파일 가져오도록 하기
         FileReader fileReader = null;
         try {
             fileReader = new FileReader(document);
