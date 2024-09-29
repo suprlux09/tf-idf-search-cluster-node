@@ -62,7 +62,7 @@ public class OnElectionAction implements OnElectionCallback {
 
         try {
             String currentServerAddress =
-                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getCanonicalHostName(), port, searchCoordinator.getEndpoint());
+                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getHostAddress(), port, searchCoordinator.getEndpoint());
             coordinatorsServiceRegistry.registerToCluster(currentServerAddress);
         } catch (InterruptedException | UnknownHostException | KeeperException e) {
             e.printStackTrace();
@@ -80,7 +80,7 @@ public class OnElectionAction implements OnElectionCallback {
 
         try {
             String currentServerAddress =
-                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getCanonicalHostName(), port, searchWorker.getEndpoint());
+                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getHostAddress(), port, searchWorker.getEndpoint());
 
             workersServiceRegistry.registerToCluster(currentServerAddress);
         } catch (InterruptedException | UnknownHostException | KeeperException e) {
