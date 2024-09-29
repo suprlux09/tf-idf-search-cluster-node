@@ -30,9 +30,9 @@ import model.SerializationUtils;
 import model.Task;
 import networking.OnRequestCallback;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,15 +65,16 @@ public class SearchWorker implements OnRequestCallback {
     }
 
     private List<String> parseWordsFromDocument(String document) {
-        // TODO: S3 버킷으로부터 파일 가져오도록 하기
-        FileReader fileReader = null;
+        BufferedReader bufferedReader = null;
+        System.out.println(document);
         try {
-            fileReader = new FileReader(document);
-        } catch (FileNotFoundException e) {
+            URL url = new URL(document);
+            InputStream inputStream = url.openStream();
+            bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+        } catch (Exception e) {
+            e.printStackTrace();
             return Collections.emptyList();
         }
-
-        BufferedReader bufferedReader = new BufferedReader(fileReader);
         List<String> lines = bufferedReader.lines().collect(Collectors.toList());
         List<String> words = TFIDF.getWordsFromDocument(lines);
         return words;
