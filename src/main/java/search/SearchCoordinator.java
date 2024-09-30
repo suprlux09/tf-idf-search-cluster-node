@@ -26,6 +26,7 @@ package search;
 
 import cluster.management.ServiceRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.github.cdimascio.dotenv.Dotenv;
 import model.DocumentData;
 import model.Result;
 import model.SerializationUtils;
@@ -56,10 +57,20 @@ import static java.net.URLEncoder.encode;
  */
 public class SearchCoordinator implements OnRequestCallback {
     private static final String ENDPOINT = "/search";
-    private static final String BOOKS_DIRECTORY = "http://tf-idf-document-search-documents.s3.amazonaws.com";
+    private static final String BOOKS_DIRECTORY;
+    private static final String S3_ACCESS_KEY_ID;
+    private static final String S3_SECRET_ACCESS_KEY;
     private final ServiceRegistry workersServiceRegistry;
     private final WebClient client;
     private final List<String> documents;
+
+    static {
+        Dotenv dotenv = Dotenv.load();
+        BOOKS_DIRECTORY = dotenv.get("BOOKS_DIRECTORY");
+        S3_ACCESS_KEY_ID = dotenv.get("S3_ACCESS_KEY_ID");
+        S3_SECRET_ACCESS_KEY = dotenv.get("S3_SECRET_ACCESS_KEY");
+        System.out.println(BOOKS_DIRECTORY);
+    }
 
     public SearchCoordinator(ServiceRegistry workersServiceRegistry, WebClient client) {
         this.workersServiceRegistry = workersServiceRegistry;
@@ -198,11 +209,8 @@ public class SearchCoordinator implements OnRequestCallback {
 
     private static List<String> readDocumentsList() {
         // S3 버킷으로부터 파일명 모두 읽어오기
-        // TODO: 빌드 전 id, accesskey 기입
-        String accessKeyId = "";
-        String secretAccessKey = "";
         Region region = Region.US_EAST_1;
-        AwsBasicCredentials awsCreds = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+        AwsBasicCredentials awsCreds = AwsBasicCredentials.create(S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY);
         try (S3Client s3 = S3Client.builder()
                 .region(region)
                 .credentialsProvider(StaticCredentialsProvider.create(awsCreds))

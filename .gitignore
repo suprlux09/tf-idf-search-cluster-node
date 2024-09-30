@@ -1,5 +1,6 @@
 .idea
 target
+.env
 
 # Compiled class file
 *.class
