@@ -30,8 +30,8 @@ import org.apache.zookeeper.KeeperException;
 import search.SearchCoordinator;
 import search.SearchWorker;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.net.*;
+import java.util.Enumeration;
 
 public class OnElectionAction implements OnElectionCallback {
     private final ServiceRegistry workersServiceRegistry;
@@ -62,9 +62,9 @@ public class OnElectionAction implements OnElectionCallback {
 
         try {
             String currentServerAddress =
-                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getHostAddress(), port, searchCoordinator.getEndpoint());
+                    String.format("http://%s:%d%s", getLocalIPAddress(), port, searchCoordinator.getEndpoint());
             coordinatorsServiceRegistry.registerToCluster(currentServerAddress);
-        } catch (InterruptedException | UnknownHostException | KeeperException e) {
+        } catch (InterruptedException | KeeperException e) {
             e.printStackTrace();
             return;
         }
@@ -80,12 +80,46 @@ public class OnElectionAction implements OnElectionCallback {
 
         try {
             String currentServerAddress =
-                    String.format("http://%s:%d%s", InetAddress.getLocalHost().getHostAddress(), port, searchWorker.getEndpoint());
+                    String.format("http://%s:%d%s", getLocalIPAddress(), port, searchWorker.getEndpoint());
 
             workersServiceRegistry.registerToCluster(currentServerAddress);
-        } catch (InterruptedException | UnknownHostException | KeeperException e) {
+        } catch (InterruptedException | KeeperException e) {
             e.printStackTrace();
             return;
         }
+    }
+
+    public static String getLocalIPAddress() {
+        String address = "";
+        int count = 0;
+        try {
+            System.out.println("Get every network interfaces...");
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                System.out.println(ni.getName());
+                if (ni.isLoopback() || !ni.isUp()) {
+                    continue;
+                }
+                Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (!addr.isLoopbackAddress() && addr.getHostAddress().indexOf(':') == -1) {
+                        address = addr.getHostAddress();
+                        System.out.println("IP address bound on " + ni.getName() + "is "+ address);
+                        count += 1;
+                    }
+                }
+            }
+            System.out.println("Done.");
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+
+        if (count > 1) {
+            System.out.println("More than one network interfaces found which have bounded IP address");
+        }
+
+        return address;
     }
 }
