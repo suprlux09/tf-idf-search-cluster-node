@@ -64,7 +64,7 @@ public class OnElectionAction implements OnElectionCallback {
             String currentServerAddress =
                     String.format("http://%s:%d%s", getLocalIPAddress(), port, searchCoordinator.getEndpoint());
             coordinatorsServiceRegistry.registerToCluster(currentServerAddress);
-        } catch (InterruptedException | KeeperException e) {
+        } catch (InterruptedException | UnknownHostException | SocketException | KeeperException e) {
             e.printStackTrace();
             return;
         }
@@ -83,43 +83,28 @@ public class OnElectionAction implements OnElectionCallback {
                     String.format("http://%s:%d%s", getLocalIPAddress(), port, searchWorker.getEndpoint());
 
             workersServiceRegistry.registerToCluster(currentServerAddress);
-        } catch (InterruptedException | KeeperException e) {
+        } catch (InterruptedException | UnknownHostException | SocketException | KeeperException e) {
             e.printStackTrace();
             return;
         }
     }
 
-    public static String getLocalIPAddress() {
-        String address = "";
-        int count = 0;
-        try {
-            System.out.println("Get every network interfaces...");
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface ni = interfaces.nextElement();
-                System.out.println(ni.getName());
-                if (ni.isLoopback() || !ni.isUp()) {
-                    continue;
-                }
+    public static String getLocalIPAddress() throws UnknownHostException, SocketException {
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface ni = interfaces.nextElement();
+
+            // awsvpc의 ENI은 eth1으로 확인됨
+            if (ni.getName().equals("eth1")) {
                 Enumeration<InetAddress> addresses = ni.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
                     if (!addr.isLoopbackAddress() && addr.getHostAddress().indexOf(':') == -1) {
-                        address = addr.getHostAddress();
-                        System.out.println("IP address bound on " + ni.getName() + "is "+ address);
-                        count += 1;
+                        return addr.getHostAddress();
                     }
                 }
             }
-            System.out.println("Done.");
-        } catch (SocketException e) {
-            e.printStackTrace();
         }
-
-        if (count > 1) {
-            System.out.println("More than one network interfaces found which have bounded IP address");
-        }
-
-        return address;
+        throw new UnknownHostException();
     }
 }
