@@ -29,6 +29,14 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
+import org.json.JSONObject;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ecs.EcsClient;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksRequest;
+import software.amazon.awssdk.services.ecs.model.DescribeTasksResponse;
+import software.amazon.awssdk.services.ecs.model.Task;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -41,12 +49,16 @@ import java.net.URL;
  */
 public class Application implements Watcher {
     private static final String ZOOKEEPER_ADDRESS;
+    private static final String ECS_ACCESS_KEY_ID;
+    private static final String ECS_SECRET_ACCESS_KEY;
     private static final int SESSION_TIMEOUT = 3000;
     private ZooKeeper zooKeeper;
 
     static {
         Dotenv dotenv = Dotenv.load();
         ZOOKEEPER_ADDRESS = dotenv.get("ZOOKEEPER_ADDRESS");
+        ECS_ACCESS_KEY_ID = dotenv.get("ECS_ACCESS_KEY_ID");
+        ECS_SECRET_ACCESS_KEY = dotenv.get("ECS_SECRET_ACCESS_KEY");
     }
 
     public static void main(String[] args) throws IOException, InterruptedException, KeeperException {
@@ -57,9 +69,8 @@ public class Application implements Watcher {
         Application application = new Application();
         ZooKeeper zooKeeper = application.connectToZookeeper();
 
-        // TODO: AWS ECS service 정보를 가져오도록 하기
-        String clusterZnode = "";
-        getECSServiceMetadata();
+        String clusterZnode = null;
+        System.out.println("startedBy: " + getECSServiceId());
 
         ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
         ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
@@ -75,8 +86,9 @@ public class Application implements Watcher {
         System.out.println("Disconnected from Zookeeper, exiting application");
     }
 
-    private static String getECSServiceMetadata() {
+    private static String getECSServiceId() {
         String metadataUri = System.getenv("ECS_CONTAINER_METADATA_URI_V4");
+        String serviceDeploymentId = null;
 
         if (metadataUri == null || metadataUri.isEmpty()) {
             System.out.println("메타데이터 엔드포인트 환경 변수가 설정되어 있지 않습니다.");
@@ -84,8 +96,6 @@ public class Application implements Watcher {
         }
 
         try {
-            System.out.println(metadataUri);
-
             // 메타데이터 엔드포인트에 HTTP GET 요청 보내기
             URL url = new URL(metadataUri);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -106,14 +116,40 @@ public class Application implements Watcher {
 
                 // 메타데이터 출력 (JSON 형식)
                 System.out.println("메타데이터 응답: " + response.toString());
-                return response.toString();
+
+                // 메타데이터를 활용해서 service 정보 읽어내기
+                Region region = Region.US_EAST_1;
+                AwsBasicCredentials awsCreds = AwsBasicCredentials.create(ECS_ACCESS_KEY_ID, ECS_SECRET_ACCESS_KEY);
+
+                EcsClient ecsClient = EcsClient.builder()
+                        .region(region)
+                        .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
+                        .build();
+
+                JSONObject jsonObject = new JSONObject(response.toString());
+                JSONObject labels = jsonObject.getJSONObject("Labels");
+                String clusterArn = labels.getString("com.amazonaws.ecs.cluster");
+                String taskArn = labels.getString("com.amazonaws.ecs.task-arn");
+
+                DescribeTasksRequest tasksRequest = DescribeTasksRequest.builder()
+                        .cluster(clusterArn)
+                        .tasks(taskArn)
+                        .build();
+
+                DescribeTasksResponse tasksResponse = ecsClient.describeTasks(tasksRequest);
+                Task task = tasksResponse.tasks().get(0);
+                serviceDeploymentId = task.startedBy();
+
+                System.out.println(serviceDeploymentId);
+                ecsClient.close();
+
             } else {
                 System.out.println("메타데이터 요청 실패. 응답 코드: " + responseCode);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
+        return serviceDeploymentId;
     }
 
     public ZooKeeper connectToZookeeper() throws IOException {
