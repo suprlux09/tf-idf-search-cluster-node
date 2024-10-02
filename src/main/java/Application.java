@@ -30,7 +30,11 @@ import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
  * Search Cluster Coordinator - Distributed Search Part 2
@@ -54,7 +58,8 @@ public class Application implements Watcher {
         ZooKeeper zooKeeper = application.connectToZookeeper();
 
         // TODO: AWS ECS service 정보를 가져오도록 하기
-        String clusterZnode = "/search";
+        String clusterZnode = "";
+        getECSServiceMetadata();
 
         ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
         ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
@@ -68,6 +73,47 @@ public class Application implements Watcher {
         application.run();
         application.close();
         System.out.println("Disconnected from Zookeeper, exiting application");
+    }
+
+    private static String getECSServiceMetadata() {
+        String metadataUri = System.getenv("ECS_CONTAINER_METADATA_URI_V4");
+
+        if (metadataUri == null || metadataUri.isEmpty()) {
+            System.out.println("메타데이터 엔드포인트 환경 변수가 설정되어 있지 않습니다.");
+            return null;
+        }
+
+        try {
+            System.out.println(metadataUri);
+
+            // 메타데이터 엔드포인트에 HTTP GET 요청 보내기
+            URL url = new URL(metadataUri);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            // 응답 코드 확인
+            int responseCode = conn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 응답 읽기
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                // 메타데이터 출력 (JSON 형식)
+                System.out.println("메타데이터 응답: " + response.toString());
+                return response.toString();
+            } else {
+                System.out.println("메타데이터 요청 실패. 응답 코드: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public ZooKeeper connectToZookeeper() throws IOException {
