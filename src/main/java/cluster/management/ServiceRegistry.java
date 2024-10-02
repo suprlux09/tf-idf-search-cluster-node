@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class ServiceRegistry implements Watcher {
+    public static String CLUSTER_ZNODE;
     public static final String WORKERS_REGISTRY_ZNODE = "/workers_service_registry";
     public static final String COORDINATORS_REGISTRY_ZNODE = "/coordinators_service_registry";
     private final ZooKeeper zooKeeper;
@@ -39,9 +40,11 @@ public class ServiceRegistry implements Watcher {
     private String currentZnode = null;
     private final String serviceRegistryZnode;
 
-    public ServiceRegistry(ZooKeeper zooKeeper, String serviceRegistryZnode) {
+    public ServiceRegistry(ZooKeeper zooKeeper, String clusterZnode, String serviceRegistryZnode) {
         this.zooKeeper = zooKeeper;
-        this.serviceRegistryZnode = serviceRegistryZnode;
+        CLUSTER_ZNODE = clusterZnode;
+        this.serviceRegistryZnode = CLUSTER_ZNODE + serviceRegistryZnode;
+        createClusterNode();
         createServiceRegistryNode();
     }
 
@@ -79,6 +82,18 @@ public class ServiceRegistry implements Watcher {
         try {
             if (zooKeeper.exists(serviceRegistryZnode, false) == null) {
                 zooKeeper.create(serviceRegistryZnode, new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (KeeperException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void createClusterNode() {
+        try {
+            if (zooKeeper.exists(CLUSTER_ZNODE, false) == null) {
+                zooKeeper.create(CLUSTER_ZNODE, new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
             }
         } catch (InterruptedException e) {
             e.printStackTrace();

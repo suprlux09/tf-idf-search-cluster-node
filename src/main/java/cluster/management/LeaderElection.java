@@ -31,14 +31,28 @@ import java.util.Collections;
 import java.util.List;
 
 public class LeaderElection implements Watcher {
-    private static final String ELECTION_NAMESPACE = "/election";
+    private static String ELECTION_NAMESPACE;
     private String currentZnodeName;
     private final ZooKeeper zooKeeper;
     private OnElectionCallback onElectionCallback;
 
-    public LeaderElection(ZooKeeper zooKeeper, OnElectionCallback onElectionCallback) {
+    public LeaderElection(ZooKeeper zooKeeper, String clusterZnode, OnElectionCallback onElectionCallback) {
         this.zooKeeper = zooKeeper;
+        ELECTION_NAMESPACE = clusterZnode + "/election";
+        createElectionNode();
         this.onElectionCallback = onElectionCallback;
+    }
+
+    private void createElectionNode() {
+        try {
+            if (zooKeeper.exists(ELECTION_NAMESPACE, false) == null) {
+                zooKeeper.create(ELECTION_NAMESPACE, new byte[]{}, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (KeeperException e) {
+            e.printStackTrace();
+        }
     }
 
     public void volunteerForLeadership() throws KeeperException, InterruptedException {

@@ -36,7 +36,6 @@ import java.io.IOException;
  * Search Cluster Coordinator - Distributed Search Part 2
  */
 public class Application implements Watcher {
-    // TODO: zookeeper address 수정
     private static final String ZOOKEEPER_ADDRESS;
     private static final int SESSION_TIMEOUT = 3000;
     private ZooKeeper zooKeeper;
@@ -54,12 +53,15 @@ public class Application implements Watcher {
         Application application = new Application();
         ZooKeeper zooKeeper = application.connectToZookeeper();
 
-        ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
-        ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
+        // TODO: AWS ECS service 정보를 가져오도록 하기
+        String clusterZnode = "/search";
+
+        ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
+        ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
 
         OnElectionAction onElectionAction = new OnElectionAction(workersServiceRegistry, coordinatorsServiceRegistry, currentServerPort);
 
-        LeaderElection leaderElection = new LeaderElection(zooKeeper, onElectionAction);
+        LeaderElection leaderElection = new LeaderElection(zooKeeper, clusterZnode, onElectionAction);
         leaderElection.volunteerForLeadership();
         leaderElection.reelectLeader();
 
