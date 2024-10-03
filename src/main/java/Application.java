@@ -69,9 +69,7 @@ public class Application implements Watcher {
         Application application = new Application();
         ZooKeeper zooKeeper = application.connectToZookeeper();
 
-        String clusterZnode = null;
-        System.out.println("startedBy: " + getECSServiceId());
-
+        String clusterZnode = getECSServiceId();
         ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
         ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
 
@@ -138,7 +136,8 @@ public class Application implements Watcher {
 
                 DescribeTasksResponse tasksResponse = ecsClient.describeTasks(tasksRequest);
                 Task task = tasksResponse.tasks().get(0);
-                serviceDeploymentId = task.startedBy();
+                String startedBy = task.startedBy();  // ecs-svc/xxxxxxx
+                serviceDeploymentId = startedBy.split("/")[1];
 
                 System.out.println(serviceDeploymentId);
                 ecsClient.close();
