@@ -137,7 +137,7 @@ public class Application implements Watcher {
                 DescribeTasksResponse tasksResponse = ecsClient.describeTasks(tasksRequest);
                 Task task = tasksResponse.tasks().get(0);
                 String startedBy = task.startedBy();  // ecs-svc/xxxxxxx
-                serviceDeploymentId = startedBy.split("/")[1];
+                serviceDeploymentId = "/" + startedBy.split("/")[1];
 
                 System.out.println(serviceDeploymentId);
                 ecsClient.close();
