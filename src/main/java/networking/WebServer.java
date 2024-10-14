@@ -59,7 +59,7 @@ public class WebServer {
         statusContext.setHandler(this::handleStatusCheckRequest);
         taskContext.setHandler(this::handleTaskRequest);
 
-        server.setExecutor(Executors.newFixedThreadPool(8));
+        server.setExecutor(Executors.newFixedThreadPool(15));
         server.start();
     }
 

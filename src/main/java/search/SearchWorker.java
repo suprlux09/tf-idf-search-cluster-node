@@ -33,6 +33,9 @@ import networking.OnRequestCallback;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,8 +44,23 @@ public class SearchWorker implements OnRequestCallback {
     private static final String ENDPOINT = "/task";
 
     public byte[] handleRequest(byte[] requestPayload) {
+        String threadName = Thread.currentThread().getName();
+        long threadId = Thread.currentThread().getId();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime startTime = LocalDateTime.now();
+        System.out.println("[" + threadName + " (ID: " + threadId + ")] worker 작업 시작 시각: " + startTime.format(formatter));
+
         Task task = (Task) SerializationUtils.deserialize(requestPayload);
         Result result = createResult(task);
+
+        LocalDateTime endTime = LocalDateTime.now();
+        System.out.println("[" + threadName + " (ID: " + threadId + ")] worker 작업 완료 시각: " + endTime.format(formatter));
+
+        Duration duration = Duration.between(startTime, endTime);
+        long seconds = duration.getSeconds();
+        long millis = duration.toMillisPart();
+        System.out.println("[" + threadName + " (ID: " + threadId + ")] worker 작업 소요 시간: " + seconds + "s " + millis + "ms");
+
         return SerializationUtils.serialize(result);
     }
 
@@ -56,17 +74,27 @@ public class SearchWorker implements OnRequestCallback {
         System.out.println(String.format("Received %d documents to process", documents.size()));
         Result result = new Result();
 
+        String threadName = Thread.currentThread().getName();
+        long threadId = Thread.currentThread().getId();
+
         for (String document : documents) {
+            LocalDateTime startTime = LocalDateTime.now();
+
             List<String> words = parseWordsFromDocument(document);
             DocumentData documentData = TFIDF.createDocumentData(words, task.getSearchTerms());
             result.addDocumentData(document, documentData);
+
+            LocalDateTime endTime = LocalDateTime.now();
+            Duration duration = Duration.between(startTime, endTime);
+            long seconds = duration.getSeconds();
+            long millis = duration.toMillisPart();
+            System.out.println("[" + threadName + " (ID: " + threadId + ")] " + document + " " + seconds + "s " + millis + "ms");
         }
         return result;
     }
 
     private List<String> parseWordsFromDocument(String document) {
         BufferedReader bufferedReader = null;
-        System.out.println(document);
         try {
             URL url = new URL(document);
             InputStream inputStream = url.openStream();

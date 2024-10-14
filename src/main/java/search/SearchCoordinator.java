@@ -46,6 +46,9 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -69,7 +72,6 @@ public class SearchCoordinator implements OnRequestCallback {
         BOOKS_DIRECTORY = dotenv.get("BOOKS_DIRECTORY");
         S3_ACCESS_KEY_ID = dotenv.get("S3_ACCESS_KEY_ID");
         S3_SECRET_ACCESS_KEY = dotenv.get("S3_SECRET_ACCESS_KEY");
-        System.out.println(BOOKS_DIRECTORY);
     }
 
     public SearchCoordinator(ServiceRegistry workersServiceRegistry, WebClient client) {
@@ -79,9 +81,23 @@ public class SearchCoordinator implements OnRequestCallback {
     }
 
     public byte[] handleRequest(byte[] requestPayload) {
+        String threadName = Thread.currentThread().getName();
+        long threadId = Thread.currentThread().getId();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime startTime = LocalDateTime.now();
+        System.out.println("[" + threadName + " (ID: " + threadId + ")] master 작업 시작 시각: " + startTime.format(formatter));
+
         try {
             SearchModel.Request request = SearchModel.Request.parseFrom(requestPayload);
             SearchModel.Response response = createResponse(request);
+
+            LocalDateTime endTime = LocalDateTime.now();
+            System.out.println("[" + threadName + " (ID: " + threadId + ")] master 작업 완료 시각: " + endTime.format(formatter));
+
+            Duration duration = Duration.between(startTime, endTime);
+            long seconds = duration.getSeconds();
+            long millis = duration.toMillisPart();
+            System.out.println("[" + threadName + " (ID: " + threadId + ")] master 작업 소요 시간: " + seconds + "s " + millis + "ms");
 
             return response.toByteArray();
         } catch (InvalidProtocolBufferException | KeeperException | InterruptedException e) {
