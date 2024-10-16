@@ -69,7 +69,7 @@ public class Application implements Watcher {
         Application application = new Application();
         ZooKeeper zooKeeper = application.connectToZookeeper();
 
-        String clusterZnode = getECSServiceId();
+        String clusterZnode = getTaskArn();
         ServiceRegistry workersServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.WORKERS_REGISTRY_ZNODE);
         ServiceRegistry coordinatorsServiceRegistry = new ServiceRegistry(zooKeeper, clusterZnode, ServiceRegistry.COORDINATORS_REGISTRY_ZNODE);
 
@@ -149,6 +149,64 @@ public class Application implements Watcher {
             e.printStackTrace();
         }
         return serviceDeploymentId;
+    }
+
+    private static String getTaskArn() {
+        String metadataUri = System.getenv("ECS_CONTAINER_METADATA_URI_V4");
+        String taskArn = null;
+
+        if (metadataUri == null || metadataUri.isEmpty()) {
+            System.out.println("메타데이터 엔드포인트 환경 변수가 설정되어 있지 않습니다.");
+            return null;
+        }
+
+        try {
+            // 메타데이터 엔드포인트에 HTTP GET 요청 보내기
+            URL url = new URL(metadataUri);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+
+            // 응답 코드 확인
+            int responseCode = conn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 응답 읽기
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                // 메타데이터 출력 (JSON 형식)
+                System.out.println("메타데이터 응답: " + response.toString());
+
+                // 메타데이터를 활용해서 service 정보 읽어내기
+                Region region = Region.US_EAST_1;
+                AwsBasicCredentials awsCreds = AwsBasicCredentials.create(ECS_ACCESS_KEY_ID, ECS_SECRET_ACCESS_KEY);
+
+                EcsClient ecsClient = EcsClient.builder()
+                        .region(region)
+                        .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
+                        .build();
+
+                JSONObject jsonObject = new JSONObject(response.toString());
+                JSONObject labels = jsonObject.getJSONObject("Labels");
+                taskArn = labels.getString("com.amazonaws.ecs.task-arn");
+                String[] parts = taskArn.split("/");
+                taskArn = "/" + parts[parts.length - 1];
+
+                System.out.println(taskArn);
+                ecsClient.close();
+
+            } else {
+                System.out.println("메타데이터 요청 실패. 응답 코드: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return taskArn;
     }
 
     public ZooKeeper connectToZookeeper() throws IOException {
