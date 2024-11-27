@@ -35,17 +35,8 @@ import model.proto.SearchModel;
 import networking.OnRequestCallback;
 import networking.WebClient;
 import org.apache.zookeeper.KeeperException;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -53,26 +44,16 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static java.net.URLEncoder.encode;
+import static aws.S3.*;
 
 /**
  * Search Cluster Coordinator - Distributed Search Part 2
  */
 public class SearchCoordinator implements OnRequestCallback {
     private static final String ENDPOINT = "/search";
-    private static final String BOOKS_DIRECTORY;
-    private static final String S3_ACCESS_KEY_ID;
-    private static final String S3_SECRET_ACCESS_KEY;
     private final ServiceRegistry workersServiceRegistry;
     private final WebClient client;
     private final List<String> documents;
-
-    static {
-        Dotenv dotenv = Dotenv.load();
-        BOOKS_DIRECTORY = dotenv.get("BOOKS_DIRECTORY");
-        S3_ACCESS_KEY_ID = dotenv.get("S3_ACCESS_KEY_ID");
-        S3_SECRET_ACCESS_KEY = dotenv.get("S3_SECRET_ACCESS_KEY");
-    }
 
     public SearchCoordinator(ServiceRegistry workersServiceRegistry, WebClient client) {
         this.workersServiceRegistry = workersServiceRegistry;
@@ -221,39 +202,5 @@ public class SearchCoordinator implements OnRequestCallback {
             workersDocuments.add(currentWorkerDocuments);
         }
         return workersDocuments;
-    }
-
-    private static List<String> readDocumentsList() {
-        // S3 버킷으로부터 파일명 모두 읽어오기
-        Region region = Region.US_EAST_1;
-        AwsBasicCredentials awsCreds = AwsBasicCredentials.create(S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY);
-        try (S3Client s3 = S3Client.builder()
-                .region(region)
-                .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
-                .build()) {
-            String bucketName = "tf-idf-document-search-documents";
-            List<String> objectKeys = new ArrayList<>();
-            ListObjectsV2Request listReq = ListObjectsV2Request.builder()
-                    .bucket(bucketName)
-                    .build();
-
-            ListObjectsV2Iterable response = s3.listObjectsV2Paginator(listReq);
-
-            for (ListObjectsV2Response page : response) {
-                for (S3Object obj : page.contents()) {
-                    objectKeys.add(BOOKS_DIRECTORY + "/" + encode(obj.key(), StandardCharsets.UTF_8));
-                }
-            }
-
-            // 결과 출력
-            for (String key : objectKeys) {
-                System.out.println(key);
-            }
-
-            return objectKeys;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 }
